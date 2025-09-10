@@ -1,0 +1,230 @@
+-- ========== CARREGAR BIBLIOTECA ==========
+local DiscordLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/UI-Libs/main/discord%20lib.txt"))()
+local win = DiscordLib:Window("THE CHOSEN ONE")
+local serv = win:Server("Main", "")
+
+-- ========= SERVIÇOS =========
+local Camera = workspace.CurrentCamera
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer = Players.LocalPlayer
+
+-- ========= VARIÁVEIS GERAIS =========
+-- Aimbot
+local AimbotEnabled, AimPart, Smoothing, FOVSize, FOVVisible = false, "Head", 3, 100, true
+local AimbotKey, HoldingKey = Enum.KeyCode.E, false
+
+local AvailableKeys = {
+    ["E"]=Enum.KeyCode.E, ["Q"]=Enum.KeyCode.Q, ["R"]=Enum.KeyCode.R,
+    ["F"]=Enum.KeyCode.F, ["T"]=Enum.KeyCode.T, ["G"]=Enum.KeyCode.G,
+    ["V"]=Enum.KeyCode.V, ["X"]=Enum.KeyCode.X, ["Z"]=Enum.KeyCode.Z,
+    ["C"]=Enum.KeyCode.C,
+    ["Mouse1"]=Enum.UserInputType.MouseButton1,
+    ["Mouse2"]=Enum.UserInputType.MouseButton2
+}
+
+-- ESP 3D
+local Settings3D = { Box_Color = Color3.fromRGB(255,0,0), Box_Thickness = 2, Enabled = false }
+
+-- Tracer
+local TracerSettings = {
+    Enabled = false,
+    FromMode = "Bottom", -- "Mouse", "Center", "Bottom"
+    Color = Color3.fromRGB(255, 80, 10),
+    Thickness = 1,
+    Transparency = 0.7,
+    TeamCheck = false
+}
+local TracerStore = {}
+
+-- ========= FOV CIRCLE =========
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255,255,255)
+FOVCircle.Thickness = 1
+FOVCircle.Transparency = 0.5
+FOVCircle.NumSides = 64
+FOVCircle.Filled = false
+FOVCircle.Radius = FOVSize
+FOVCircle.Visible = FOVVisible
+
+local function GetClosestPlayerToCursor()
+    local Target, MaxDist = nil, FOVSize
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            local TargetPart = player.Character:FindFirstChild(AimPart)
+            if TargetPart then
+                local ScreenPos, OnScreen = Camera:WorldToScreenPoint(TargetPart.Position)
+                if OnScreen then
+                    local Distance = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(ScreenPos.X, ScreenPos.Y)).Magnitude
+                    if Distance < MaxDist then
+                        MaxDist = Distance
+                        Target = player
+                    end
+                end
+            end
+        end
+    end
+    return Target
+end
+
+-- Detectar tecla
+UserInputService.InputBegan:Connect(function(input)
+    if (input.KeyCode == AimbotKey) or (input.UserInputType == AimbotKey) then HoldingKey = true end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if (input.KeyCode == AimbotKey) or (input.UserInputType == AimbotKey) then HoldingKey = false end
+end)
+
+-- Loop principal
+RunService.RenderStepped:Connect(function()
+    local mousePos = UserInputService:GetMouseLocation()
+    FOVCircle.Position = Vector2.new(mousePos.X, mousePos.Y)
+    FOVCircle.Radius = FOVSize
+    FOVCircle.Visible = FOVVisible
+
+    if AimbotEnabled and HoldingKey then
+        local target = GetClosestPlayerToCursor()
+        if target and target.Character and target.Character:FindFirstChild(AimPart) then
+            local targetPos = target.Character[AimPart].Position
+            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPos), Smoothing / 10)
+        end
+    end
+end)
+
+-- ========= 3D ESP =========
+local function NewLine3D()
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.Color = Settings3D.Box_Color
+    line.Thickness = Settings3D.Box_Thickness
+    return line
+end
+
+local function Vis3D(lib, state) for _, v in pairs(lib) do v.Visible = state end end
+local function AtualizarCores3D(lib) for _, l in pairs(lib) do l.Color = Settings3D.Box_Color end end
+
+local function Main3D(plr)
+    repeat task.wait() until plr.Character and plr.Character:FindFirstChild("Humanoid")
+    local Lines = {
+        TL1 = NewLine3D(), TL2 = NewLine3D(), TR1 = NewLine3D(), TR2 = NewLine3D(),
+        BL1 = NewLine3D(), BL2 = NewLine3D(), BR1 = NewLine3D(), BR2 = NewLine3D()
+    }
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if not plr or not plr.Parent then
+            for _, v in pairs(Lines) do pcall(function() v:Remove() end) end
+            if conn and conn.Disconnect then conn:Disconnect() end
+            return
+        end
+        if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") and plr.Character.Humanoid.Health > 0 then
+            local Hum = plr.Character
+            local _, vis = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position)
+            if vis then
+                AtualizarCores3D(Lines)
+                Vis3D(Lines, Settings3D.Enabled)
+                local TL = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position + Vector3.new(-2, 3, 0))
+                local TR = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position + Vector3.new(2, 3, 0))
+                local BL = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position + Vector3.new(-2, -3, 0))
+                local BR = Camera:WorldToViewportPoint(Hum.HumanoidRootPart.Position + Vector3.new(2, -3, 0))
+
+                Lines.TL1.From, Lines.TL1.To = Vector2.new(TL.X, TL.Y), Vector2.new(TL.X + 5, TL.Y)
+                Lines.TL2.From, Lines.TL2.To = Vector2.new(TL.X, TL.Y), Vector2.new(TL.X, TL.Y + 5)
+                Lines.TR1.From, Lines.TR1.To = Vector2.new(TR.X, TR.Y), Vector2.new(TR.X - 5, TR.Y)
+                Lines.TR2.From, Lines.TR2.To = Vector2.new(TR.X, TR.Y), Vector2.new(TR.X, TR.Y + 5)
+                Lines.BL1.From, Lines.BL1.To = Vector2.new(BL.X, BL.Y), Vector2.new(BL.X + 5, BL.Y)
+                Lines.BL2.From, Lines.BL2.To = Vector2.new(BL.X, BL.Y), Vector2.new(BL.X, BL.Y - 5)
+                Lines.BR1.From, Lines.BR1.To = Vector2.new(BR.X, BR.Y), Vector2.new(BR.X - 5, BR.Y)
+                Lines.BR2.From, Lines.BR2.To = Vector2.new(BR.X, BR.Y), Vector2.new(BR.X, BR.Y - 5)
+            else
+                Vis3D(Lines, false)
+            end
+        else
+            Vis3D(Lines, false)
+        end
+    end)
+end
+
+for _, v in pairs(Players:GetPlayers()) do if v ~= LocalPlayer then coroutine.wrap(Main3D)(v) end end
+Players.PlayerAdded:Connect(function(newplr) if newplr ~= LocalPlayer then coroutine.wrap(Main3D)(newplr) end end)
+
+-- ========= TRACERS =========
+local function createTracerForPlayer(player)
+    if not player or player == LocalPlayer then return end
+    if TracerStore[player] then
+        pcall(function() TracerStore[player].line:Remove() end)
+        if TracerStore[player].conn then TracerStore[player].conn:Disconnect() end
+        TracerStore[player] = nil
+    end
+
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.Color = TracerSettings.Color
+    line.Thickness = TracerSettings.Thickness
+    line.Transparency = TracerSettings.Transparency
+
+    local conn
+    conn = RunService.RenderStepped:Connect(function()
+        if not player or not player.Parent then line.Visible = false return end
+        local char = player.Character
+        if char and char:FindFirstChild("HumanoidRootPart") and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0 then
+            local hrp = char.HumanoidRootPart
+            local VectorPos, OnScreen = Camera:WorldToViewportPoint(hrp.Position)
+            line.Color = TracerSettings.Color
+            line.Thickness = TracerSettings.Thickness
+            line.Transparency = TracerSettings.Transparency
+            if TracerSettings.FromMode == "Mouse" then
+                local m = UserInputService:GetMouseLocation()
+                line.From = Vector2.new(m.X, m.Y)
+            elseif TracerSettings.FromMode == "Center" then
+                line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+            else
+                line.From = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
+            end
+            if OnScreen then
+                line.To = Vector2.new(VectorPos.X, VectorPos.Y)
+                if TracerSettings.TeamCheck then
+                    line.Visible = LocalPlayer.Team ~= player.Team and TracerSettings.Enabled
+                else
+                    line.Visible = TracerSettings.Enabled
+                end
+            else line.Visible = false end
+        else line.Visible = false end
+    end)
+    TracerStore[player] = { line=line, conn=conn }
+end
+
+local function removeTracerForPlayer(player)
+    if TracerStore[player] then
+        pcall(function() TracerStore[player].line:Remove() end)
+        if TracerStore[player].conn then TracerStore[player].conn:Disconnect() end
+        TracerStore[player] = nil
+    end
+end
+
+for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer then createTracerForPlayer(p) end end
+Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then createTracerForPlayer(p) end end)
+Players.PlayerRemoving:Connect(removeTracerForPlayer)
+
+-- ========= UI (AIMBOT) =========
+local aiming = serv:Channel("Aiming")
+
+aiming:Toggle("Enable Aimbot", false, function(v) AimbotEnabled = v end)
+aiming:Slider("Smoothing", 1, 10, 3, function(v) Smoothing = v end)
+aiming:Dropdown("Aim Part", {"Head","Torso","HumanoidRootPart","Right Arm","Left Arm"}, function(v) AimPart = v end)
+aiming:Toggle("Show FOV", false, function(v) FOVVisible = v end)
+aiming:Slider("FOV Size", 20, 300, 100, function(v) FOVSize = v end)
+aiming:Dropdown("Aimbot Key", {"E","Q","R","F","T","G","V","X","Z","C","Mouse1","Mouse2"}, function(v) AimbotKey = AvailableKeys[v] or Enum.KeyCode.E end)
+
+-- ========= UI (VISUALS) =========
+local visuals = serv:Channel("Visuals")
+
+visuals:Toggle("3D ESP", false, function(v) Settings3D.Enabled = v end)
+visuals:Colorpicker("ESP Color", Color3.fromRGB(255,0,0), function(c) Settings3D.Box_Color = c end)
+
+visuals:Toggle("ESP Tracers", false, function(v) TracerSettings.Enabled = v end)
+visuals:Dropdown("Tracer From", {"Mouse","Center","Bottom"}, function(v) TracerSettings.FromMode = v end)
+visuals:Colorpicker("Tracer Color", Color3.fromRGB(255,80,10), function(c) TracerSettings.Color = c end)
+visuals:Slider("Tracer Thickness", 1, 5, 1, function(v) TracerSettings.Thickness = v end)
+visuals:Slider("Tracer Transparency", 0, 1, 0.7, function(v) TracerSettings.Transparency = v end)
+visuals:Toggle("Team Check", false, function(v) TracerSettings.TeamCheck = v end)
