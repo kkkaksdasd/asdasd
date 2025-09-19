@@ -101,13 +101,13 @@ end)
 RunService.RenderStepped:Connect(function()
     if HitboxEnabled then
         for _, v in pairs(Players:GetPlayers()) do
-            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("Head") then
                 pcall(function()
-                    v.Character.HumanoidRootPart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
-                    v.Character.HumanoidRootPart.Transparency = HitboxTransparency
-                    v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really blue")
-                    v.Character.HumanoidRootPart.Material = "Neon"
-                    v.Character.HumanoidRootPart.CanCollide = false
+                    v.Character.Head.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                    v.Character.Head.Transparency = HitboxTransparency
+                    v.Character.Head.BrickColor = BrickColor.new("Really blue")
+                    v.Character.Head.Material = "Neon"
+                    v.Character.Head.CanCollide = false
                 end)
             end
         end
