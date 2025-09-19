@@ -24,6 +24,11 @@ local AvailableKeys = {
     ["Mouse2"]=Enum.UserInputType.MouseButton2
 }
 
+-- ========= VARIÁVEIS (HITBOX) =========
+local HitboxEnabled = false
+local HitboxSize = 10
+local HitboxTransparency = 0.7
+
 -- ESP 3D
 local Settings3D = { Box_Color = Color3.fromRGB(255,0,0), Box_Thickness = 2, Enabled = false }
 
@@ -88,6 +93,23 @@ RunService.RenderStepped:Connect(function()
         if target and target.Character and target.Character:FindFirstChild(AimPart) then
             local targetPos = target.Character[AimPart].Position
             Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPos), Smoothing / 10)
+        end
+    end
+end)
+
+-- ========= LOOP HITBOX =========
+RunService.RenderStepped:Connect(function()
+    if HitboxEnabled then
+        for _, v in pairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                pcall(function()
+                    v.Character.HumanoidRootPart.Size = Vector3.new(HitboxSize, HitboxSize, HitboxSize)
+                    v.Character.HumanoidRootPart.Transparency = HitboxTransparency
+                    v.Character.HumanoidRootPart.BrickColor = BrickColor.new("Really blue")
+                    v.Character.HumanoidRootPart.Material = "Neon"
+                    v.Character.HumanoidRootPart.CanCollide = false
+                end)
+            end
         end
     end
 end)
@@ -228,3 +250,18 @@ visuals:Colorpicker("Tracer Color", Color3.fromRGB(255,80,10), function(c) Trace
 visuals:Slider("Tracer Thickness", 1, 5, 1, function(v) TracerSettings.Thickness = v end)
 visuals:Slider("Tracer Transparency", 0, 1, 0.7, function(v) TracerSettings.Transparency = v end)
 visuals:Toggle("Team Check", false, function(v) TracerSettings.TeamCheck = v end)
+
+-- ========= UI (HITBOX) =========
+local hitbox = serv:Channel("Hitbox")
+
+hitbox:Toggle("Enable Hitbox Expander", false, function(v)
+    HitboxEnabled = v
+end)
+
+hitbox:Slider("Hitbox Size", 2, 50, 10, function(v)
+    HitboxSize = v
+end)
+
+hitbox:Slider("Hitbox Transparency", 0, 1, 0.7, function(v)
+    HitboxTransparency = v
+end)
