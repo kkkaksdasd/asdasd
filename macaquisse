@@ -1,6 +1,6 @@
 -- ========== CARREGAR BIBLIOTECA ==========
 local DiscordLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/UI-Libs/main/discord%20lib.txt"))()
-local win = DiscordLib:Window("THE CHOSEN ONE")
+local win = DiscordLib:Window("NeverStress PRIVATE")
 local serv = win:Server("Main", "")
 
 -- ========= SERVIÇOS =========
