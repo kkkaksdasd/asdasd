@@ -22,7 +22,7 @@ local TeamCheckAim = true
 local AimPart = "Head"
 local Smooth = 3
 local FOV = 100
-local ShowFOV = true
+local ShowFOV = false
 local Holding = false
 local AimKey = Enum.KeyCode.E
 
