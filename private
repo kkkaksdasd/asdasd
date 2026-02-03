@@ -1,0 +1,200 @@
+-- ================== UI ==================
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/WetCheezit/Bracket-V2/main/src.lua"))()
+local Window = Library:CreateWindow("NeverStress PRIVATE")
+
+local AimbotTab = Window:CreateTab("Aimbot")
+local VisualTab = Window:CreateTab("Visuals")
+
+local AimBox = AimbotTab:CreateGroupbox("Aiming", "Left")
+local EspBox = VisualTab:CreateGroupbox("Skeleton ESP", "Left")
+
+-- ================== SERVICES ==================
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+
+-- ================== AIMBOT VARS ==================
+local AimbotEnabled = false
+local VisibleAim = true
+local TeamCheckAim = true
+local AimPart = "Head"
+local Smooth = 3
+local FOV = 100
+local ShowFOV = true
+local Holding = false
+local AimKey = Enum.KeyCode.E
+
+-- ================== ESP VARS ==================
+local EspEnabled = false
+local TeamCheckESP = true
+local UseVisibleColors = true
+local EspVisibleColor = Color3.fromRGB(0,255,0)   -- verde
+local EspHiddenColor  = Color3.fromRGB(255,0,0)   -- vermelho
+local EspThickness = 1.5
+
+-- ================== FOV ==================
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 1
+FOVCircle.Transparency = 0.5
+FOVCircle.NumSides = 64
+FOVCircle.Filled = false
+
+-- ================== KEYS ==================
+local Keys = {
+    E=Enum.KeyCode.E,Q=Enum.KeyCode.Q,R=Enum.KeyCode.R,F=Enum.KeyCode.F,
+    T=Enum.KeyCode.T,G=Enum.KeyCode.G,V=Enum.KeyCode.V,X=Enum.KeyCode.X,
+    Z=Enum.KeyCode.Z,C=Enum.KeyCode.C,Mouse1=Enum.UserInputType.MouseButton1,
+    Mouse2=Enum.UserInputType.MouseButton2
+}
+
+-- ================== SKELETON ==================
+local Bones = {
+    {"Head","UpperTorso"},{"UpperTorso","LowerTorso"},
+    {"UpperTorso","LeftUpperArm"},{"LeftUpperArm","LeftLowerArm"},{"LeftLowerArm","LeftHand"},
+    {"UpperTorso","RightUpperArm"},{"RightUpperArm","RightLowerArm"},{"RightLowerArm","RightHand"},
+    {"LowerTorso","LeftUpperLeg"},{"LeftUpperLeg","LeftLowerLeg"},{"LeftLowerLeg","LeftFoot"},
+    {"LowerTorso","RightUpperLeg"},{"RightUpperLeg","RightLowerLeg"},{"RightLowerLeg","RightFoot"}
+}
+
+local Skeletons = {}
+
+local function CreateSkeleton(plr)
+    Skeletons[plr] = {}
+    for _ = 1,#Bones do
+        local l = Drawing.new("Line")
+        l.Thickness = EspThickness
+        l.Visible = false
+        Skeletons[plr][#Skeletons[plr]+1] = l
+    end
+end
+
+local function RemoveSkeleton(plr)
+    if Skeletons[plr] then
+        for _,l in ipairs(Skeletons[plr]) do l:Remove() end
+        Skeletons[plr] = nil
+    end
+end
+
+for _,p in ipairs(Players:GetPlayers()) do
+    if p ~= LocalPlayer then CreateSkeleton(p) end
+end
+Players.PlayerAdded:Connect(function(p) if p ~= LocalPlayer then CreateSkeleton(p) end end)
+Players.PlayerRemoving:Connect(RemoveSkeleton)
+
+-- ================== VISIBILITY ==================
+local function IsVisible(part, char)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = {LocalPlayer.Character, char}
+    params.IgnoreWater = true
+    return not workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, params)
+end
+
+-- ================== AIMBOT ==================
+local function GetClosest()
+    local best, dist = nil, FOV
+    for _,p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(AimPart) then
+            if TeamCheckAim and p.Team == LocalPlayer.Team then continue end
+            local hum = p.Character:FindFirstChild("Humanoid")
+            if not hum or hum.Health <= 0 then continue end
+
+            local part = p.Character[AimPart]
+            if VisibleAim and not IsVisible(part, p.Character) then continue end
+
+            local pos, on = Camera:WorldToViewportPoint(part.Position)
+            if on then
+                local m = UserInputService:GetMouseLocation()
+                local mag = (Vector2.new(m.X,m.Y) - Vector2.new(pos.X,pos.Y)).Magnitude
+                if mag < dist then dist = mag; best = p end
+            end
+        end
+    end
+    return best
+end
+
+UserInputService.InputBegan:Connect(function(i)
+    if i.KeyCode == AimKey or i.UserInputType == AimKey then Holding = true end
+end)
+UserInputService.InputEnded:Connect(function(i)
+    if i.KeyCode == AimKey or i.UserInputType == AimKey then Holding = false end
+end)
+
+-- ================== MAIN LOOP ==================
+RunService.RenderStepped:Connect(function()
+    local mouse = UserInputService:GetMouseLocation()
+    FOVCircle.Position = Vector2.new(mouse.X, mouse.Y)
+    FOVCircle.Radius = FOV
+    FOVCircle.Visible = ShowFOV
+
+    -- AIMBOT
+    if AimbotEnabled and Holding then
+        local t = GetClosest()
+        if t and t.Character and t.Character:FindFirstChild(AimPart) then
+            Camera.CFrame = Camera.CFrame:Lerp(
+                CFrame.new(Camera.CFrame.Position, t.Character[AimPart].Position),
+                Smooth/10
+            )
+        end
+    end
+
+    -- SKELETON ESP (COM CORES VISÍVEL / ATRÁS)
+    for plr,lines in pairs(Skeletons) do
+        local char = plr.Character
+        if not EspEnabled or not char or not char:FindFirstChild("Humanoid") then
+            for _,l in ipairs(lines) do l.Visible=false end
+            continue
+        end
+        if TeamCheckESP and plr.Team == LocalPlayer.Team then
+            for _,l in ipairs(lines) do l.Visible=false end
+            continue
+        end
+        if char.Humanoid.Health <= 0 then
+            for _,l in ipairs(lines) do l.Visible=false end
+            continue
+        end
+
+        local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
+        local visible = root and IsVisible(root, char)
+        local color = (UseVisibleColors and visible) and EspVisibleColor or EspHiddenColor
+
+        for i,b in ipairs(Bones) do
+            local p1,p2 = char:FindFirstChild(b[1]), char:FindFirstChild(b[2])
+            local l = lines[i]
+            if p1 and p2 then
+                local v1,o1 = Camera:WorldToViewportPoint(p1.Position)
+                local v2,o2 = Camera:WorldToViewportPoint(p2.Position)
+                if o1 and o2 then
+                    l.From = Vector2.new(v1.X,v1.Y)
+                    l.To   = Vector2.new(v2.X,v2.Y)
+                    l.Color = color
+                    l.Visible = true
+                else
+                    l.Visible = false
+                end
+            else
+                l.Visible = false
+            end
+        end
+    end
+end)
+
+-- ================== UI ==================
+AimBox:CreateToggle("Enable Aimbot", function(v) AimbotEnabled=v end)
+AimBox:CreateToggle("Visible Aim (Wall Check)", function(v) VisibleAim=v end)
+AimBox:CreateToggle("Team Check", function(v) TeamCheckAim=v end)
+AimBox:CreateSlider("Smoothing",1,10,3,function(v) Smooth=v end)
+AimBox:CreateSlider("FOV",20,300,100,function(v) FOV=v end)
+AimBox:CreateToggle("Show FOV",function(v) ShowFOV=v end)
+AimBox:CreateDropdown("Aim Part",{"Head","UpperTorso","HumanoidRootPart"},function(v) AimPart=v end)
+AimBox:CreateDropdown("Aim Key",{"E","Mouse1","Mouse2"},function(v)
+    AimKey = Keys[v] or Enum.KeyCode.E
+end)
+
+EspBox:CreateToggle("Skeleton ESP", function(v) EspEnabled=v end)
+EspBox:CreateToggle("Team Check ESP", function(v) TeamCheckESP=v end)
+EspBox:CreateToggle("Color by Visibility", function(v) UseVisibleColors=v end)
+EspBox:CreateColorPicker("Visible Color", EspVisibleColor, function(c) EspVisibleColor=c end)
+EspBox:CreateColorPicker("Hidden Color", EspHiddenColor, function(c) EspHiddenColor=c end)
